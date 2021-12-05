@@ -24,20 +24,22 @@ fun main() {
 
         // Find all winning boards in order,
         // store the last score
-        drawnNumbers.forEach { number ->
-            if (boards.isEmpty()) return@forEach
+        drawnNumbers.apply {
+            forEach { number ->
+                if (boards.isEmpty()) return@apply
 
-            // Apply the drawn number to all boards, and check if there was any winner
-            val allWinning = boards.map { Pair(it.verifyNumber(number), it) }.filter { it.first }
+                // Apply the drawn number to all boards, and check if there was any winner
+                val allWinning = boards.map { Pair(it.verifyNumber(number), it) }.filter { it.first }
 
-            // Remove all winners from boards, so we don't over-count
-            allWinning.map { it.second }.forEach { winningBoard ->
-                boards.remove(winningBoard)
-            }
+                // Remove all winners from boards, so we don't over-count
+                allWinning.map { it.second }.forEach { winningBoard ->
+                    boards.remove(winningBoard)
+                }
 
-            // Get the score of the last winner
-            if (allWinning.isNotEmpty()) {
-                lastWinningScore = allWinning.last().second.computeBingoScore(number)
+                // Get the score of the last winner
+                if (allWinning.isNotEmpty()) {
+                    lastWinningScore = allWinning.last().second.computeBingoScore(number)
+                }
             }
         }
         return lastWinningScore
