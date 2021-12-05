@@ -18,7 +18,9 @@ fun main() {
 
     fun part2(input: List<String>): Int {
         val drawnNumbers = input.first().split(",").map { it.toInt() }
-        val boards: MutableList<BingoBoard> = ArrayList((1 until input.size step 6).map { BingoBoard(input.subList(it + 1, it + 6)) }) // skip the empty line
+        val boards = (1 until input.size step 6).map {
+            BingoBoard(input.subList(it + 1, it + 6))
+        }.toMutableList() // skip the empty line
 
         var lastWinningScore = 0
 
@@ -32,9 +34,7 @@ fun main() {
                 val allWinning = boards.map { Pair(it.verifyNumber(number), it) }.filter { it.first }
 
                 // Remove all winners from boards, so we don't over-count
-                allWinning.map { it.second }.forEach { winningBoard ->
-                    boards.remove(winningBoard)
-                }
+                allWinning.map { it.second }.forEach { boards.remove(it) }
 
                 // Get the score of the last winner
                 if (allWinning.isNotEmpty()) {
@@ -56,13 +56,9 @@ fun main() {
 }
 
 class BingoBoard(layout: List<String>) {
-    private val board: MutableList<List<BingoNode>> = ArrayList()
-
-    init {
-        layout.forEach { row ->
-            board.add(row.trim().split("\\s+".toRegex()).map { BingoNode(it.toInt())})
-        }
-    }
+    private val board = layout.map {
+        it.trim().split("\\s+".toRegex()).map { n -> BingoNode(n.toInt()) }
+    }.toMutableList()
 
     /** Verify if the number is present on the board
      * If present, mark as checked and validate
@@ -87,9 +83,8 @@ class BingoBoard(layout: List<String>) {
      * Then, multiply that sum by the number that was just called when the board won
      */
     fun computeBingoScore(winningNumber: Int): Int {
-        var sumUnmarked = 0
-        board.forEach { row ->
-            sumUnmarked += row.filter { !it.checked }.sumOf { it.value }
+        val sumUnmarked = board.fold(0) { sum, row ->
+            sum + row.filter { !it.checked }.sumOf { it.value }
         }
 
         return sumUnmarked * winningNumber
