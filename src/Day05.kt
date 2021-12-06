@@ -1,42 +1,28 @@
 import kotlin.math.max
-import kotlin.math.min
 
 fun main() {
     // "a,b" => Pair(a, b)
-    fun parsePoint(pointDef: String): Pair<Int, Int> {
+    fun parsePoint(pointDef: String): Point {
         val coordinates = pointDef.split(',')
-        return Pair(coordinates[0].toInt(), coordinates[1].toInt())
+        return Point(coordinates[0].toInt(), coordinates[1].toInt())
     }
     // "a,b -> c,d" => Pair(Pair(a,b), Pair(c,d))
-    fun parsePoints(pointsDef: String): Pair<Pair<Int, Int>, Pair<Int, Int>> {
+    fun parsePoints(pointsDef: String): Pair<Point, Point> {
         val points = pointsDef.split(" -> ")
         return Pair(parsePoint(points[0]), parsePoint(points[1]))
     }
 
-    fun buildGrid(input: List<String>, withDiagonal: Boolean = false): HydrothermalVentGrid {
-        var maxX = 0
-        var maxY = 0
-
-        val lines = input.map { parsePoints(it) }.map {
-            val line = Line(it.first, it.second, withDiagonal)
-            // Keep track of max X,Y to be able to build the grid later
-            maxX = max(maxX, max(line.p1.first, line.p2.first))
-            maxY = max(maxY, max(line.p1.second, line.p2.second))
-
-            // Return the line
-            line
-        }
-
-        return HydrothermalVentGrid(lines, Pair(maxX, maxY))
-    }
-
     fun part1(input: List<String>): Int {
-        val grid = buildGrid(input)
+        val lines = input.map { parsePoints(it) }.map { Line.newLine(it.first, it.second) }
+        val grid = VentGrid(lines.filter { it is HLine || it is VLine }) // Ignore diagonals
+
         return grid.getOverlappingPoints()
     }
 
     fun part2(input: List<String>): Int {
-        val grid = buildGrid(input, true)
+        val lines = input.map { parsePoints(it) }.map { Line.newLine(it.first, it.second) }
+        val grid = VentGrid(lines) // Use all lines
+
         return grid.getOverlappingPoints()
     }
 
@@ -50,25 +36,19 @@ fun main() {
     println(part2(input))
 }
 
-class HydrothermalVentGrid(lines: List<Line>, maxPoint: Pair<Int, Int>) {
-    private val grid = Array(maxPoint.first + 1) { Array(maxPoint.second + 1) { 0 } }
+class VentGrid(lines: List<Line>) {
+    private val grid: Array<Array<Int>>
 
     init {
-        lines.forEach { line ->
-            line.points().forEach { point ->
-                grid[point.first][point.second]++
-            }
-        }
-    }
+        var maxX = 0
+        var maxY = 0
 
-    fun printIt() {
-        grid.forEach { row ->
-            row.forEach {
-                if (it == 0) print(".")
-                else print(it)
-            }
-            println()
+        lines.forEach { line ->
+            maxX = max(maxX, line.points().maxOf { it.x })
+            maxY = max(maxY, line.points().maxOf { it.y })
         }
+
+        grid = buildGrid(lines, maxX, maxY)
     }
 
     fun getOverlappingPoints(): Int {
@@ -76,89 +56,104 @@ class HydrothermalVentGrid(lines: List<Line>, maxPoint: Pair<Int, Int>) {
             sum + row.filter { it > 1 }.size
         }
     }
+
+    fun display() {
+        grid.forEach { println(it.asList()) }
+    }
+
+    // X is the horizontal axis (or columns)
+    // Y is the vertical axis (or rows)
+    private fun buildGrid(lines: List<Line>, maxX: Int, maxY: Int): Array<Array<Int>> {
+        val grid = Array(maxY + 1){ Array(maxX + 1) { 0 } }
+
+        lines.forEach { line ->
+            line.points().forEach { p ->
+                grid[p.y][p.x]++
+            }
+        }
+
+        return grid
+    }
 }
 
-class Line(val p1: Pair<Int, Int>, val p2: Pair<Int, Int>, private val acceptDiagonal: Boolean = false) {
-    fun points(): List<Pair<Int, Int>> {
-        // Check if line is vertical or horizontal, then expand points in that direction
-        return if (isVertical()) {
-            getVerticalPoints()
-        } else if (isHorizontal()) {
-            getHorizontalPoints()
-        } else {
-            getDiagonalPoints()
+class Point(val x: Int, val y: Int): Comparable<Point> {
+    override fun compareTo(other: Point): Int {
+        if (this.x == other.x) {
+            if (this.y == other.y) return 0
+            if (this.y < other.y) return -1
+            return 1
         }
-    }
 
-    private fun isVertical(): Boolean {
-        return p1.first == p2.first
-    }
-
-    private fun getVerticalPoints(): List<Pair<Int, Int>> {
-        val x = p1.first
-        val minY = min(p1.second, p2.second)
-        val maxY = max(p1.second, p2.second)
-        return (minY..maxY).map { Pair(x, it) }
-    }
-
-    private fun isHorizontal(): Boolean {
-        return p1.second == p2.second
-    }
-
-    private fun getHorizontalPoints(): List<Pair<Int, Int>> {
-        val y = p1.second
-        val minX = min(p1.first, p2.first)
-        val maxX = max(p1.first, p2.first)
-        return (minX..maxX).map { Pair(it, y)}
-    }
-
-    private fun getDiagonalPoints(): List<Pair<Int, Int>> {
-        if (acceptDiagonal) {
-            var x = p1.first
-            var y = p1.second
-            val points: MutableList<Pair<Int, Int>> = ArrayList()
-
-            if (p1.first > p2.first && p1.second > p2.second) { // descend at 45dg
-                while (x >= p2.first && y >= p2.second) {
-                    points.add(Pair(x, y))
-                    x--
-                    y--
-                }
-                return points
-            }
-
-            if (p1.first > p2.first && p1.second < p2.second) { // descend at 45dg
-                while (x >= p2.first && y <= p2.second) {
-                    points.add(Pair(x, y))
-                    x--
-                    y++
-                }
-                return points
-            }
-
-            if (p1.first < p2.first && p1.second > p2.second) { // descend at 45dg
-                while (x <= p2.first && y >= p2.second) {
-                    points.add(Pair(x, y))
-                    x++
-                    y--
-                }
-                return points
-            }
-
-            // p1.first < p2.first && p1.second < p2.second
-            while (x <= p2.first && y <= p2.second) {
-                points.add(Pair(x, y))
-                x++
-                y++
-            }
-            return points
-
-        } else {
-            return listOf()
+        if (this.x < other.x) {
+            if (this.y == other.y) return -1
+            if (this.y < other.y) return -1
+            return 1
         }
+
+        // this.x > other.x
+        if (this.y == other.y) return 1
+        if (this.y > other.y) return 1
+        return -1
     }
 
     override fun toString(): String {
-        return points().joinToString(",", prefix = "[", postfix = "]") { "(${it.first},${it.second})" }
+        return "($x, $y)"
+    }
+}
+
+interface Line {
+    fun points(): List<Point>
+
+    companion object {
+        fun newLine(p1: Point, p2: Point): Line {
+            var tp1 = p1
+            var tp2 = p2
+
+            if (p1 > p2) {
+                tp1 = p2
+                tp2 = p1
+            }
+
+            if (tp1.compareTo(tp2) == 0) return HLine(tp1, tp2)
+            if (tp1.y == tp2.y) return HLine(tp1, tp2)
+            if (tp1.x == tp2.x) return VLine(tp1, tp2)
+            if (tp1.x > tp2.x && tp1.y < tp2.y) return DLLine(tp1, tp2)
+            return DRLine(tp1, tp2)
+        }
+    }
+}
+
+abstract class ALine(protected val p1: Point, protected val p2: Point): Line {
+    private val linePoints = this.getPoints()
+
+    override fun points() = linePoints
+    override fun toString() = linePoints.toString()
+
+    protected abstract fun getPoints(): List<Point>
+}
+
+class HLine(p1: Point, p2: Point): ALine(p1, p2) {
+    override fun getPoints(): List<Point> {
+        return (p1.x..p2.x).map { Point(it, p1.y) }
+    }
+}
+
+class VLine(p1: Point, p2: Point): ALine(p1, p2) {
+    override fun getPoints(): List<Point> {
+        return (p1.y..p2.y).map { Point(p1.x, it) }
+    }
+}
+
+class DRLine(p1: Point, p2: Point): ALine(p1, p2) {
+    // 45 deg line from right to left
+    override fun getPoints(): List<Point> {
+        return (0..(p2.x - p1.x)).map { Point(p1.x + it, p1.y + it) }
+    }
+}
+
+class DLLine(p1: Point, p2: Point): ALine(p1, p2) {
+    // 45 deg line from left to right
+    override fun getPoints(): List<Point> {
+        return (0..(p1.x - p2.x)).map { Point(p1.x - it, p1.y + it)}
     }
 }
