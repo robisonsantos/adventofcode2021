@@ -53,16 +53,40 @@ fun String.autocompleteScore(): Long {
     }
 }
 
+fun String.isOpenToken(): Boolean {
+    return setOf("(", "[", "<", "{").contains(this)
+}
+
+fun String.match(other: String): Boolean {
+    return when (this) {
+        "{" -> other == "}"
+        "(" -> other == ")"
+        "<" -> other == ">"
+        "[" -> other == "]"
+        else -> false
+    }
+}
+
+fun String.getMatchToken(): String {
+    return when (this) {
+        "{" -> "}"
+        "(" -> ")"
+        "<" -> ">"
+        "[" -> "]"
+        else -> ""
+    }
+}
+
 fun evaluateSyntax(input: String): EvaluationResul {
-    val tokens = input.split("".toRegex()).filter { it.isNotEmpty() }
+    val tokens = input.chunked(1)
     val stack = Stack<String>()
 
     for (token in tokens) {
-        if (isOpen(token)) {
+        if (token.isOpenToken()) {
             stack.add(token)
         } else {
             val top = stack.peek()
-            if (top != null && isMatch(top, token)) {
+            if (top != null && top.match(token)) {
                 stack.pop()
             } else {
                 return Corrupted(token)
@@ -73,32 +97,8 @@ fun evaluateSyntax(input: String): EvaluationResul {
     return if (stack.isEmpty()) Success else Incomplete(stack)
 }
 
-fun isOpen(token: String): Boolean {
-    return setOf("(", "[", "<", "{").contains(token)
-}
-
-fun isMatch(open: String, close: String): Boolean {
-    return when (open) {
-        "{" -> close == "}"
-        "(" -> close == ")"
-        "<" -> close == ">"
-        "[" -> close == "]"
-        else -> false
-    }
-}
-
-fun getMatch(open: String): String {
-    return when (open) {
-        "{" -> "}"
-        "(" -> ")"
-        "<" -> ">"
-        "[" -> "]"
-        else -> ""
-    }
-}
-
 fun autocomplete(stack: Stack<String>): List<String> {
-    return stack.map { getMatch(it) }.reversed()
+    return stack.map { it.getMatchToken() }.reversed()
 }
 
 fun computeAutocompleteScore(autocomplete: List<String>): Long {
